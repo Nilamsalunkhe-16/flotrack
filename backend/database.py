@@ -1,34 +1,59 @@
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
+import pymysql
 import os
 
-# First connection to MySQL (no database selected)
-MYSQL_URL = "mysql+pymysql://root:nilam@127.0.0.1:3306"
+# Database configuration
+MYSQL_HOST = "127.0.0.1"
+MYSQL_USER = "root"
+MYSQL_PASSWORD = "nilam"
+MYSQL_PORT = 3306
 DATABASE_NAME = "flowtrack"
-DATABASE_URL = f"{MYSQL_URL}/{DATABASE_NAME}"
 
-# Create initial engine to ensure database exists
-initial_engine = create_engine(MYSQL_URL)
+DATABASE_URL = f"mysql+pymysql://{MYSQL_USER}:{MYSQL_PASSWORD}@{MYSQL_HOST}:{MYSQL_PORT}/{DATABASE_NAME}"
 
-# Create database if it doesn't exist
+# Create database using raw pymysql connection
+print("🔄 Initializing database connection...")
 try:
-    with initial_engine.connect() as conn:
-        conn.execute(text(f"CREATE DATABASE IF NOT EXISTS {DATABASE_NAME}"))
-        conn.commit()
+    # Connect without selecting a database
+    conn = pymysql.connect(
+        host=MYSQL_HOST,
+        user=MYSQL_USER,
+        password=MYSQL_PASSWORD,
+        port=MYSQL_PORT
+    )
+    cursor = conn.cursor()
+    
+    # Create database if it doesn't exist
+    cursor.execute(f"CREATE DATABASE IF NOT EXISTS {DATABASE_NAME}")
+    conn.commit()
+    cursor.close()
+    conn.close()
+    
     print(f"✓ Database '{DATABASE_NAME}' ensured to exist")
+except pymysql.Error as e:
+    print(f"✗ Error creating database: {e}")
 except Exception as e:
-    print(f"Error creating database: {e}")
+    print(f"✗ Unexpected error: {e}")
 
-initial_engine.dispose()
-
-# Now connect to the specific database
-engine = create_engine(
-    DATABASE_URL,
-    echo=True,
-    pool_pre_ping=True,  # Test connections before using them
-    pool_recycle=3600    # Recycle connections after 1 hour
-)
+# Now create SQLAlchemy engine
+try:
+    engine = create_engine(
+        DATABASE_URL,
+        echo=False,  # Set to False to reduce noise
+        pool_pre_ping=True,
+        pool_recycle=3600
+    )
+    
+    # Test connection
+    with engine.connect() as conn:
+        conn.execute(text("SELECT 1"))
+    
+    print(f"✓ Connected to MySQL database '{DATABASE_NAME}' successfully!")
+except Exception as e:
+    print(f"✗ Database connection failed: {e}")
+    print(f"  URL: {DATABASE_URL}")
 
 SessionLocal = sessionmaker(
     autocommit=False,
@@ -44,13 +69,3 @@ def get_db():
         yield db
     finally:
         db.close()
-
-# Test connection
-try:
-    with engine.connect() as conn:
-        conn.execute(text("SELECT 1"))
-    print(f"✓ Connected to MySQL database '{DATABASE_NAME}' successfully!")
-except Exception as e:
-    print(f"✗ Database connection failed: {e}")
-    print(f"  Make sure MySQL is running and the connection string is correct:")
-    print(f"  {DATABASE_URL}")
