@@ -2,7 +2,7 @@ from sqlalchemy import Column, Integer, String, Date, ForeignKey, Float, Boolean
 from sqlalchemy.orm import relationship, declarative_base
 from pydantic import BaseModel
 from typing import Optional
-from datetime import date
+from datetime import date, datetime
 import enum
 
 Base = declarative_base()
@@ -91,6 +91,20 @@ class PCOSRecord(Base):
     notes = Column(Text)
 
     user = relationship("User", back_populates="pcos_records")    
+
+
+# Chat Message model for storing conversations
+class ChatMessage(Base):
+    __tablename__ = "chat_messages"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    user_message = Column(Text)
+    bot_response = Column(Text)
+    source = Column(String(50), default="local_kb")  # "openai" or "local_kb"
+    created_at = Column(TIMESTAMP, default=datetime.utcnow)
+
+    user = relationship("User", foreign_keys=[user_id])
 
 
 # Pydantic models for API inputs

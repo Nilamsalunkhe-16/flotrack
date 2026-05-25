@@ -1,17 +1,21 @@
 from fastapi import FastAPI
 from models import AnemiaInput, PCOSInput
 from database import SessionLocal, engine, Base
-from models import User as UserModel, DailyLog, PCOSRecord
+from models import User as UserModel, DailyLog, PCOSRecord, ChatMessage
 from auth import create_user, authenticate
 from ml_model import anemia_model, pcos_model
 from datetime import datetime
 from schemas import UserCreate
+from chatbot import router as chatbot_router
 import numpy as np
 
 # Create tables if they don't exist
 Base.metadata.create_all(bind=engine)
 
-app = FastAPI()
+app = FastAPI(title="FloTrack API", description="Women's Health Tracking & Chatbot API")
+
+# Include chatbot router
+app.include_router(chatbot_router, prefix="/api/chatbot", tags=["chatbot"])
 
 
 # ─── AUTH ─────────────────────
@@ -116,3 +120,59 @@ def save(data: dict):
         return {"error": f"Save failed: {str(e)}"}
     finally:
         db.close()
+
+# ─── CHAT HISTORY ────────────
+
+@app.get("/chat-history/{user_id}")
+def get_chat_history(user_id: int, limit: int = 50):
+    """Get chat history for a user"""
+    db = SessionLocal()
+    try:
+        messages = db.query(ChatMessage).filter(
+            ChatMessage.user_id == user_id
+        ).order_by(ChatMessage.created_at.desc()).limit(limit).all()
+        
+        return {
+            "user_id": user_id,
+            "messages": [
+                {
+                    "id": msg.id,
+                    "user_message": msg.user_message,
+                    "bot_response": msg.bot_response,
+                    "source": msg.source,
+                    "created_at": msg.created_at.isoformat() if msg.created_at else None
+                }
+                for msg in reversed(messages)
+            ],
+            "total": len(messages)
+        }
+    except Exception as e:
+        return {"error": f"Failed to fetch chat history: {str(e)}"}
+    finally:
+        db.close()
+
+@app.delete("/chat-history/{user_id}")
+def clear_chat_history(user_id: int):
+    """Clear chat history for a user"""
+    db = SessionLocal()
+    try:
+        db.query(ChatMessage).filter(ChatMessage.user_id == user_id).delete()
+        db.commit()
+        return {"message": "Chat history cleared"}
+    except Exception as e:
+        db.rollback()
+        return {"error": f"Failed to clear chat history: {str(e)}"}
+    finally:
+        db.close()
+
+# ─── HEALTH CHECK ────────────
+
+@app.get("/health")
+def health_check():
+    """Health check endpoint"""
+    return {
+        "status": "healthy",
+        "api": "FloTrack API",
+        "version": "2.0",
+        "features": ["user_auth", "anemia_prediction", "pcos_prediction", "lifestyle_tracking", "women_health_chatbot"]
+    }

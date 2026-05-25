@@ -7,3 +7,5 @@ passlib[bcrypt]
 scikit-learn
 pydantic
 pydantic[email]
+openai
+python-dotenv
