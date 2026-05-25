@@ -1,7 +1,9 @@
 fastapi
 uvicorn
-pymongo
+sqlalchemy
+pymysql
 python-jose
 passlib[bcrypt]
 scikit-learn
 pydantic
+pydantic[email]

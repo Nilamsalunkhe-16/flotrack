@@ -4,7 +4,7 @@ from sqlalchemy.ext.declarative import declarative_base
 
 DATABASE_URL = "mysql+pymysql://root:nilam@127.0.0.1:3306/flowtrack"
 
-engine = create_engine(DATABASE_URL)
+engine = create_engine(DATABASE_URL, echo=True)
 
 SessionLocal = sessionmaker(
     autocommit=False,
@@ -12,7 +12,6 @@ SessionLocal = sessionmaker(
     bind=engine
 )
 
-# ADD THIS
 Base = declarative_base()
 
 def get_db():
@@ -23,5 +22,9 @@ def get_db():
         db.close()
 
 # Test connection
-with engine.connect() as conn:
-    print("Connected successfully!")
+try:
+    with engine.connect() as conn:
+        print("Connected to MySQL successfully!")
+        conn.execute("SELECT 1")
+except Exception as e:
+    print(f"Database connection failed: {e}")

@@ -1,5 +1,8 @@
 from sqlalchemy import Column, Integer, String, Date, ForeignKey, Float, Boolean, Text, Enum, TIMESTAMP
 from sqlalchemy.orm import relationship, declarative_base
+from pydantic import BaseModel
+from typing import Optional
+from datetime import date
 import enum
 
 Base = declarative_base()
@@ -90,4 +93,15 @@ class PCOSRecord(Base):
     user = relationship("User", back_populates="pcos_records")    
 
 
-    
+# Pydantic models for API inputs
+class AnemiaInput(BaseModel):
+    user_id: Optional[int] = None
+    heavyPeriods: int
+    fatigue: int
+    lowIronDiet: int
+
+class PCOSInput(BaseModel):
+    user_id: Optional[int] = None
+    irregularCycles: int
+    weightGain: int
+    acne: int
