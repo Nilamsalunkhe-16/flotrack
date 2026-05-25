@@ -31,8 +31,9 @@ async def chat(data: ChatRequest):
     """
     Chat endpoint - uses OpenAI if available, falls back to local knowledge base
     """
-    db = SessionLocal()
+    db = None
     try:
+        db = SessionLocal()
         reply = ""
         source = "local_kb"
         
@@ -72,15 +73,21 @@ async def chat(data: ChatRequest):
         
         # Save chat message to database if user_id provided
         if data.user_id:
-            chat_msg = ChatMessage(
-                user_id=data.user_id,
-                user_message=data.message,
-                bot_response=reply,
-                source=source,
-                created_at=datetime.utcnow()
-            )
-            db.add(chat_msg)
-            db.commit()
+            try:
+                chat_msg = ChatMessage(
+                    user_id=data.user_id,
+                    user_message=data.message,
+                    bot_response=reply,
+                    source=source,
+                    created_at=datetime.utcnow()
+                )
+                db.add(chat_msg)
+                db.commit()
+                print(f"✓ Chat message saved for user {data.user_id}")
+            except Exception as e:
+                db.rollback()
+                print(f"Warning: Could not save chat message: {e}")
+                # Don't fail the chat response, just skip saving
         
         return ChatResponse(
             reply=reply,
@@ -88,8 +95,10 @@ async def chat(data: ChatRequest):
             timestamp=datetime.utcnow().isoformat()
         )
     except Exception as e:
-        db.rollback()
-        # Return error response with local KB answer as fallback
+        print(f"Error in chat endpoint: {e}")
+        if db:
+            db.rollback()
+        # Fallback to local KB answer
         reply = search_knowledge_base(data.message)
         return ChatResponse(
             reply=reply,
@@ -97,7 +106,8 @@ async def chat(data: ChatRequest):
             timestamp=datetime.utcnow().isoformat()
         )
     finally:
-        db.close()
+        if db:
+            db.close()
 
 @router.get("/topics")
 async def get_topics():
